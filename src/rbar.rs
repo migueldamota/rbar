@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 use gtk::{prelude::*, Application};
 
@@ -34,5 +37,10 @@ impl RBar {
         app.run();
 
         Ok(())
+    }
+
+    pub fn unique_id() -> usize {
+        static COUNTER: AtomicUsize = AtomicUsize::new(1);
+        COUNTER.fetch_add(1, Ordering::Relaxed)
     }
 }

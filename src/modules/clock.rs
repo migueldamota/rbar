@@ -1,11 +1,17 @@
-use gtk::prelude::ButtonExt;
+use gtk::prelude::{ButtonExt, WidgetExt};
 
 use super::{Module, WidgetContext};
 
-struct Clock {
+pub struct Clock {
     // /// Format: HH:MM:SS
     // #[serde(default = "%H:%M:%S")]
     // format: String,
+}
+
+impl Clock {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 impl Module<gtk::Button> for Clock {
@@ -13,12 +19,16 @@ impl Module<gtk::Button> for Clock {
         "clock"
     }
 
-    fn into_widget(self, context: &WidgetContext) -> super::Result<gtk::Button> {
+    fn into_widget(self, _: WidgetContext) -> super::Result<gtk::Button> {
         let date = chrono::Local::now();
 
+        println!("Hello");
+
         let button = gtk::Button::builder()
-            .label(format!("{}", date.format("%H:%M:%S")))
+            .label(format!("Hello {}", date.format("%H:%M:%S")))
             .build();
+
+        button.show();
 
         Ok(button)
     }

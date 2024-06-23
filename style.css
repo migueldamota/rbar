@@ -1,3 +1,13 @@
 .container {
-	background: rgba(12, 12, 24, 0.5);
+    background: #333;
+    border-radius: 8px;
+    padding: 0 50px;
+}
+
+.window {
+    border-radius: 8px;
+}
+
+.bar {
+    background: #131317;
 }

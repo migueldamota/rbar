@@ -1,5 +1,7 @@
+use serde::Deserialize;
+
 /// The general configuration of the bar.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct Config {}
 
 impl Config {
@@ -10,5 +12,5 @@ impl Config {
 }
 
 /// A bar configuration.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct BarConfig {}

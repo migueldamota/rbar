@@ -10,7 +10,10 @@ use gtk_layer_shell::LayerShell;
 
 use std::{env, sync::Arc};
 
-use crate::rbar::RBar;
+use crate::{
+    modules::{clock::Clock, BarModuleFactory, ModuleFactory, Modules},
+    rbar::RBar,
+};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -36,7 +39,7 @@ impl Bar {
 
         let name = String::from("rbar");
 
-        window.set_widget_name(&name);
+        window.style_context().add_class("bar");
 
         let content = gtk::Box::builder()
             .orientation(Orientation::Horizontal)
@@ -45,7 +48,7 @@ impl Bar {
             .name("bar")
             .build();
 
-        content.style_context().add_class("container");
+        content.style_context().add_class("content");
 
         let start = create_container("start");
         let center = create_container("center");
@@ -83,6 +86,8 @@ impl Bar {
 
         self.setup_layer_shell(&self.window, monitor);
 
+        let _res = self.load_modules();
+
         self.show();
 
         Ok(self)
@@ -99,9 +104,8 @@ impl Bar {
         win.auto_exclusive_zone_enable();
 
         win.set_layer_shell_margin(Edge::Top, 8);
-        win.set_layer_shell_margin(Edge::Bottom, 8);
-        win.set_layer_shell_margin(Edge::Left, 32);
-        win.set_layer_shell_margin(Edge::Right, 32);
+        win.set_layer_shell_margin(Edge::Left, 8);
+        win.set_layer_shell_margin(Edge::Right, 8);
 
         win.set_anchor(Edge::Top, true);
         win.set_anchor(Edge::Left, true);
@@ -109,12 +113,15 @@ impl Bar {
     }
 
     fn show(&self) {
-        self.start.show();
-        self.center.show();
-        self.end.show();
-        self.content.show();
+        self.content.show_all();
 
         self.window.show();
+    }
+
+    fn load_modules(&self) -> Result<()> {
+        add_modules(&self.end, &self.rbar)?;
+
+        Ok(())
     }
 }
 
@@ -122,12 +129,11 @@ pub fn load_css() {
     let style_path = env::current_dir().expect("to exist").join("style.css");
 
     let provider = CssProvider::new();
-    match provider.load_from_file(&gio::File::for_path(&style_path)) {
-        Ok(()) => {
-            println!("CSS loaded from: {}", style_path.display());
-        }
-        Err(err) => eprintln!("Failed to load CSS: {}", err),
-    };
+    if let Err(err) = provider.load_from_file(&gio::File::for_path(&style_path)) {
+        eprintln!("Failed to load CSS: {}", err);
+    } else {
+        println!("CSS loaded from: {}", style_path.display());
+    }
 
     let screen = Screen::default().expect("Failed to get defautl GTK screen");
     StyleContext::add_provider_for_screen(
@@ -166,4 +172,16 @@ pub fn load_bars(rbar: Arc<RBar>, app: &Application) {
 fn create_bar(app: &Application, rbar: Arc<RBar>, monitor: &Monitor) -> Result<Bar> {
     let bar = Bar::new(app, rbar);
     bar.init(monitor)
+}
+
+fn add_modules(content: &gtk::Box, rbar: &Arc<RBar>) -> Result<()> {
+    let factory = BarModuleFactory::new(rbar.clone());
+
+    let modules: Vec<Modules> = vec![Modules::Clock(Box::new(Clock::new()))];
+
+    for module in modules {
+        module.create(&factory, content)?;
+    }
+
+    Ok(())
 }
