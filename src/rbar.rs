@@ -1,9 +1,10 @@
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc,
+    Arc, OnceLock,
 };
 
 use gtk4::{prelude::*, Application};
+use tokio::runtime::Runtime;
 
 use crate::{
     bar::{load_bars, load_css},
@@ -30,6 +31,7 @@ impl RBar {
         let instance = Arc::new(self);
 
         app.connect_activate(move |app| {
+            // Load styles.
             load_css();
 
             load_bars(instance.clone(), app);
@@ -45,4 +47,16 @@ impl RBar {
         static COUNTER: AtomicUsize = AtomicUsize::new(1);
         COUNTER.fetch_add(1, Ordering::Relaxed)
     }
+
+    pub fn runtime() -> Arc<Runtime> {
+        static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
+        RUNTIME.get_or_init(|| Arc::new(create_runtime())).clone()
+    }
+}
+
+fn create_runtime() -> Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create runtime")
 }
