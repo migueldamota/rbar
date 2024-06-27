@@ -1,6 +1,5 @@
 use clock::Clock;
-use glib::IsA;
-use gtk::{prelude::*, Widget};
+use gtk4::{prelude::*, Widget};
 
 use std::sync::Arc;
 
@@ -25,7 +24,7 @@ where
 }
 
 pub trait ModuleFactory {
-    fn create<M, W>(&self, module: M, container: &gtk::Box) -> Result<()>
+    fn create<M, W>(&self, module: M, container: &gtk4::Box) -> Result<()>
     where
         M: Module<W>,
         W: IsA<Widget>,
@@ -39,7 +38,7 @@ pub trait ModuleFactory {
         let m = module.into_widget(context)?;
         m.set_widget_name("clock");
 
-        container.add(&m);
+        container.append(&m);
 
         Ok(())
     }
@@ -68,7 +67,7 @@ pub enum Modules {
 }
 
 impl Modules {
-    pub fn create(self, module_factory: &BarModuleFactory, container: &gtk::Box) -> Result<()> {
+    pub fn create(self, module_factory: &BarModuleFactory, container: &gtk4::Box) -> Result<()> {
         match self {
             Self::Clock(module) => module_factory.create(*module, container),
         }

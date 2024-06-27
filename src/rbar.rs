@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
 };
 
-use gtk::{prelude::*, Application};
+use gtk4::{prelude::*, Application};
 
 use crate::{
     bar::{load_bars, load_css},

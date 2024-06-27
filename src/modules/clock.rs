@@ -1,7 +1,4 @@
-use gtk::{
-    prelude::{ContainerExt, WidgetExt},
-    Button, Label,
-};
+use gtk4::{prelude::*, Button, Label};
 
 use super::{Module, WidgetContext};
 
@@ -31,9 +28,10 @@ impl Module<Button> for Clock {
             .label(format!("{}", date.format(format)))
             .build();
 
-        button.add(&label);
+        label.show();
+        button.set_child(Some(&label));
 
-        button.show_all();
+        button.show();
 
         Ok(button)
     }

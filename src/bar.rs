@@ -1,12 +1,11 @@
-use glib::Propagation;
-use gtk::{
+use gtk4::{
     ffi::GTK_STYLE_PROVIDER_PRIORITY_USER,
-    gdk::{Display, Monitor, Screen},
+    gdk::{Display, Monitor},
     gio,
     prelude::*,
-    Application, ApplicationWindow, CssProvider, Orientation, StyleContext, WindowType,
+    Application, ApplicationWindow, CssProvider, Orientation,
 };
-use gtk_layer_shell::LayerShell;
+use gtk4_layer_shell::LayerShell;
 
 use std::{env, sync::Arc};
 
@@ -22,31 +21,31 @@ pub struct Bar {
     name: &'static str,
 
     window: ApplicationWindow,
-    content: gtk::Box,
-    left: gtk::Box,
-    center: gtk::Box,
-    right: gtk::Box,
+    content: gtk4::CenterBox,
+    left: gtk4::Box,
+    center: gtk4::Box,
+    right: gtk4::Box,
 
     rbar: Arc<RBar>,
 }
 
 impl Bar {
     pub fn new(app: &Application, rbar: Arc<RBar>) -> Self {
-        let window = ApplicationWindow::builder()
-            .application(app)
-            .type_(WindowType::Toplevel)
-            .build();
+        let window = ApplicationWindow::builder().application(app).build();
+        window.set_layer(gtk4_layer_shell::Layer::Top);
 
         let name = "rbar";
 
         window.style_context().add_class("bar");
 
-        let content = gtk::Box::builder()
+        let content = gtk4::CenterBox::builder()
             .orientation(Orientation::Horizontal)
             .hexpand(false)
             .height_request(rbar.config.bar.height)
             .name("bar")
             .build();
+
+        // todo: look at gtk4::CenterBox or gtk4::HeaderBar
 
         content.style_context().add_class("content");
 
@@ -54,15 +53,14 @@ impl Bar {
         let center = create_container("center");
         let right = create_container("end");
 
-        content.add(&left);
+        content.set_start_widget(Some(&left));
         content.set_center_widget(Some(&center));
-        content.pack_end(&right, false, false, 0);
+        content.set_end_widget(Some(&right));
 
-        window.add(&content);
+        window.set_child(Some(&content));
 
-        window.connect_destroy_event(|_, _| {
-            gtk::main_quit();
-            Propagation::Proceed
+        window.connect_destroy(|_| {
+            println!("destroy");
         });
 
         Self {
@@ -94,7 +92,7 @@ impl Bar {
     }
 
     fn setup_layer_shell(&self, win: &ApplicationWindow, monitor: &Monitor) {
-        use gtk_layer_shell::{Edge, Layer};
+        use gtk4_layer_shell::{Edge, Layer};
 
         win.init_layer_shell();
         win.set_monitor(monitor);
@@ -104,10 +102,10 @@ impl Bar {
         win.auto_exclusive_zone_enable();
 
         let margin = &self.rbar.config.margin;
-        win.set_layer_shell_margin(Edge::Top, margin.top);
-        win.set_layer_shell_margin(Edge::Left, margin.left);
-        win.set_layer_shell_margin(Edge::Right, margin.right);
-        win.set_layer_shell_margin(Edge::Bottom, margin.bottom);
+        win.set_margin(Edge::Top, margin.top);
+        win.set_margin(Edge::Left, margin.left);
+        win.set_margin(Edge::Right, margin.right);
+        win.set_margin(Edge::Bottom, margin.bottom);
 
         win.set_anchor(Edge::Top, true);
         win.set_anchor(Edge::Left, true);
@@ -115,7 +113,10 @@ impl Bar {
     }
 
     fn show(&self) {
-        self.content.show_all();
+        self.left.show();
+        self.center.show();
+        self.right.show();
+        self.content.show();
 
         self.window.show();
     }
@@ -131,22 +132,18 @@ pub fn load_css() {
     let style_path = env::current_dir().expect("to exist").join("style.css");
 
     let provider = CssProvider::new();
-    if let Err(err) = provider.load_from_file(&gio::File::for_path(&style_path)) {
-        eprintln!("Failed to load CSS: {}", err);
-    } else {
-        println!("CSS loaded from: {}", style_path.display());
-    }
+    provider.load_from_file(&gio::File::for_path(&style_path));
 
-    let screen = Screen::default().expect("Failed to get defautl GTK screen");
-    StyleContext::add_provider_for_screen(
+    let screen = Display::default().expect("Failed to get defautl GTK screen");
+    gtk4::style_context_add_provider_for_display(
         &screen,
         &provider,
         GTK_STYLE_PROVIDER_PRIORITY_USER as u32,
     );
 }
 
-fn create_container(name: &str) -> gtk::Box {
-    let container = gtk::Box::builder()
+fn create_container(name: &str) -> gtk4::Box {
+    let container = gtk4::Box::builder()
         .orientation(Orientation::Horizontal)
         .name(name)
         .build();
@@ -165,8 +162,12 @@ fn get_display() -> Display {
 pub fn load_bars(rbar: Arc<RBar>, app: &Application) {
     let display = get_display();
 
-    for i in 0..display.n_monitors() {
-        let monitor = display.monitor(i).expect("monitor to exist");
+    let monitors = display.monitors();
+
+    for i in 0..monitors.n_items() {
+        let monitor = monitors.item(i).expect("monitor to exist");
+        // todo: add error handling
+        let monitor = monitor.downcast::<Monitor>().unwrap();
         let _ = create_bar(app, rbar.clone(), &monitor);
     }
 }
@@ -176,7 +177,7 @@ fn create_bar(app: &Application, rbar: Arc<RBar>, monitor: &Monitor) -> Result<B
     bar.init(monitor)
 }
 
-fn add_modules(content: &gtk::Box, rbar: &Arc<RBar>) -> Result<()> {
+fn add_modules(content: &gtk4::Box, rbar: &Arc<RBar>) -> Result<()> {
     let factory = BarModuleFactory::new(rbar.clone());
 
     let modules: Vec<Modules> = vec![Modules::Clock(Box::new(Clock::new()))];
