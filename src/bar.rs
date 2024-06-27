@@ -11,7 +11,7 @@ use gtk_layer_shell::LayerShell;
 use std::{env, sync::Arc};
 
 use crate::{
-    modules::{clock::Clock, BarModuleFactory, ModuleFactory, Modules},
+    modules::{clock::Clock, BarModuleFactory, Modules},
     rbar::RBar,
 };
 
@@ -19,13 +19,13 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Debug)]
 pub struct Bar {
-    name: String,
+    name: &'static str,
 
     window: ApplicationWindow,
     content: gtk::Box,
-    start: gtk::Box,
+    left: gtk::Box,
     center: gtk::Box,
-    end: gtk::Box,
+    right: gtk::Box,
 
     rbar: Arc<RBar>,
 }
@@ -37,26 +37,26 @@ impl Bar {
             .type_(WindowType::Toplevel)
             .build();
 
-        let name = String::from("rbar");
+        let name = "rbar";
 
         window.style_context().add_class("bar");
 
         let content = gtk::Box::builder()
             .orientation(Orientation::Horizontal)
             .hexpand(false)
-            .height_request(40)
+            .height_request(rbar.config.bar.height)
             .name("bar")
             .build();
 
         content.style_context().add_class("content");
 
-        let start = create_container("start");
+        let left = create_container("start");
         let center = create_container("center");
-        let end = create_container("end");
+        let right = create_container("end");
 
-        content.add(&start);
+        content.add(&left);
         content.set_center_widget(Some(&center));
-        content.pack_end(&end, false, false, 0);
+        content.pack_end(&right, false, false, 0);
 
         window.add(&content);
 
@@ -71,9 +71,9 @@ impl Bar {
             content,
             rbar,
 
-            start,
+            left,
             center,
-            end,
+            right,
         }
     }
 
@@ -103,9 +103,11 @@ impl Bar {
 
         win.auto_exclusive_zone_enable();
 
-        win.set_layer_shell_margin(Edge::Top, 8);
-        win.set_layer_shell_margin(Edge::Left, 8);
-        win.set_layer_shell_margin(Edge::Right, 8);
+        let margin = &self.rbar.config.margin;
+        win.set_layer_shell_margin(Edge::Top, margin.top);
+        win.set_layer_shell_margin(Edge::Left, margin.left);
+        win.set_layer_shell_margin(Edge::Right, margin.right);
+        win.set_layer_shell_margin(Edge::Bottom, margin.bottom);
 
         win.set_anchor(Edge::Top, true);
         win.set_anchor(Edge::Left, true);
@@ -119,7 +121,7 @@ impl Bar {
     }
 
     fn load_modules(&self) -> Result<()> {
-        add_modules(&self.end, &self.rbar)?;
+        add_modules(&self.center, &self.rbar)?;
 
         Ok(())
     }
@@ -165,7 +167,7 @@ pub fn load_bars(rbar: Arc<RBar>, app: &Application) {
 
     for i in 0..display.n_monitors() {
         let monitor = display.monitor(i).expect("monitor to exist");
-        create_bar(&app, rbar.clone(), &monitor);
+        let _ = create_bar(app, rbar.clone(), &monitor);
     }
 }
 

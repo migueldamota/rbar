@@ -14,12 +14,14 @@ const APP_ID: &str = "com.migueldamota.rbar";
 
 #[derive(Debug)]
 pub struct RBar {
-    config: Config,
+    pub config: Config,
 }
 
 impl RBar {
     pub fn new() -> Self {
-        Self { config: Config {} }
+        Self {
+            config: Config::load(),
+        }
     }
 
     pub fn start(self) -> Result<(), ()> {
@@ -30,7 +32,7 @@ impl RBar {
         app.connect_activate(move |app| {
             load_css();
 
-            load_bars(instance.clone(), &app);
+            load_bars(instance.clone(), app);
         });
 
         // Let's run it.

@@ -5,11 +5,12 @@ mod config;
 mod modules;
 mod rbar;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let app = RBar::new();
 
     // todo: handle errors
-    if let Err(_) = app.start() {
+    if app.start().is_err() {
         // eprintln!("{}", err);
         std::process::exit(1);
     }
