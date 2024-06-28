@@ -43,8 +43,16 @@ pub struct BarConfig {
 /// Margin configuration
 #[derive(Debug, Deserialize)]
 pub struct MarginConfig {
+    #[serde(default = "margin_default")]
     pub top: i32,
+    #[serde(default = "margin_default")]
     pub left: i32,
+    #[serde(default = "margin_default")]
     pub right: i32,
+    #[serde(default = "margin_default")]
     pub bottom: i32,
+}
+
+fn margin_default() -> i32 {
+    0
 }

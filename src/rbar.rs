@@ -43,6 +43,9 @@ impl RBar {
         Ok(())
     }
 
+    /// Get unique id for widgets.
+    ///
+    /// This is always increments by 1 on each call.
     pub fn unique_id() -> usize {
         static COUNTER: AtomicUsize = AtomicUsize::new(1);
         COUNTER.fetch_add(1, Ordering::Relaxed)

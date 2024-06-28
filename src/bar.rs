@@ -9,11 +9,7 @@ use gtk4_layer_shell::LayerShell;
 
 use std::{env, sync::Arc};
 
-use crate::{
-    config::Config,
-    modules::{ModuleFactory, Modules},
-    rbar::RBar,
-};
+use crate::{modules::ModuleFactory, rbar::RBar};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -116,7 +112,7 @@ impl Bar {
     }
 
     fn load_modules(&self) -> Result<()> {
-        add_modules(&self);
+        add_modules(&self)?;
 
         Ok(())
     }
@@ -174,7 +170,7 @@ fn create_bar(app: &Application, rbar: Arc<RBar>, monitor: &Monitor) -> Result<B
 fn add_modules(bar: &Bar) -> Result<()> {
     let factory = ModuleFactory::new(bar.rbar.clone());
 
-    for module in bar.rbar.config.bar.modules {
+    for module in bar.rbar.config.bar.modules.iter() {
         module.create(&factory, bar)?;
     }
 

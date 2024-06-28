@@ -16,7 +16,7 @@ pub struct Clock {
     /// Default: `%a %d/%m/%Y - %H:%M:%S %p`
     /// Example: Wed 01/01/2022 - 00:00:00 AM
     ///
-    /// Formatting is based on [chrono::format::strftime](https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html).
+    /// Formatting is based on [chrono::format::strftime](https://docs.rs/chrono/0.4/chrono/format/strftime/index.html).
     #[serde(default = "default_format")]
     pub format: String,
 }
@@ -48,7 +48,7 @@ impl Module<Button> for Clock {
         Ok(())
     }
 
-    fn widget(self, context: WidgetContext<Self::Send>) -> crate::Result<Button> {
+    fn widget(&self, context: WidgetContext<Self::Send>) -> crate::Result<Button> {
         let date = Local::now();
 
         let button = Button::new();
@@ -59,10 +59,12 @@ impl Module<Button> for Clock {
         button.set_child(Some(&label));
         button.show();
 
+        let format = self.format.clone();
+
         let mut rx = context.subscribe();
         glib::spawn_future_local(async move {
             while let Ok(date) = rx.recv().await {
-                let formatted_date = date.format(&self.format).to_string();
+                let formatted_date = date.format(&format).to_string();
                 label.set_label(&formatted_date);
             }
         });
