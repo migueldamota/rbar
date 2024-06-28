@@ -56,6 +56,8 @@ dependencies = [
 [[package]]
 name = "battery"
 version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4b624268937c0e0a3edb7c27843f9e547c320d730c610d3b8e6e8e95b2026e4"
 dependencies = [
  "cfg-if",
  "core-foundation",

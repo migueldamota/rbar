@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-battery = { path = "/home/miglo/git/rust-battery/battery" }
+battery = "0.7"
 chrono = "0.4"
 dirs = "5.0.1"
 gtk = { package = "gtk4", version = "0.8" }
