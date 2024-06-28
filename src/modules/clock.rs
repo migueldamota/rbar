@@ -1,22 +1,24 @@
 use chrono::{DateTime, Local};
-use gtk4::{glib, prelude::*, Button, Label};
+use gtk::{glib, prelude::*, Button, Label};
 use log::error;
-use tokio::time::sleep;
+use serde::Deserialize;
+use tokio::time::{sleep, Duration};
 
 use crate::rbar::RBar;
 
-use super::{Module, ModuleUpdateEvent, WidgetContext};
+use super::{BaseModuleConfig, Events, Module, WidgetContext};
 
+#[derive(Debug, Deserialize)]
 pub struct Clock {
-    // /// Format: HH:MM:SS
-    // #[serde(default = "%H:%M:%S")]
-    // format: String,
-}
+    config: BaseModuleConfig,
 
-impl Clock {
-    pub fn new() -> Self {
-        Self {}
-    }
+    /// Clock format
+    /// Default: `%a %d/%m/%Y - %H:%M:%S %p`
+    /// Example: Wed 01/01/2022 - 00:00:00 AM
+    ///
+    /// Formatting is based on [chrono::format::strftime](https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html).
+    #[serde(default = "default_format")]
+    pub format: String,
 }
 
 impl Module<Button> for Clock {
@@ -27,19 +29,17 @@ impl Module<Button> for Clock {
         "clock"
     }
 
-    fn spawn_controller(
-        &self,
-        context: &WidgetContext<Self::Send, Self::Receive>,
-        _rx: tokio::sync::mpsc::Receiver<Self::Receive>,
-    ) -> super::Result<()> {
+    fn controllers(&self, context: &WidgetContext<Self::Send>) -> crate::Result<()> {
         let tx = context.tx.clone();
 
         RBar::runtime().spawn(async move {
-            let duration = std::time::Duration::from_millis(500);
+            let duration = Duration::from_millis(500);
             loop {
                 let date = Local::now();
-                // todo: add error handling or something!
-                tx.send(ModuleUpdateEvent::Update(date)).await.unwrap();
+                if let Err(e) = tx.send(Events::Update(date)).await {
+                    error!("Error while sending date: {}", e);
+                    break;
+                }
 
                 sleep(duration).await;
             }
@@ -48,38 +48,33 @@ impl Module<Button> for Clock {
         Ok(())
     }
 
-    fn into_widget(
-        self,
-        context: WidgetContext<Self::Send, Self::Receive>,
-    ) -> super::Result<Button> {
-        let format = "%a %d/%m/%Y - %H:%M:%S %p";
-        let date = chrono::Local::now();
+    fn widget(self, context: WidgetContext<Self::Send>) -> crate::Result<Button> {
+        let date = Local::now();
 
         let button = Button::new();
         let label = Label::builder()
-            .label(format!("{}", date.format(format)))
+            .label(&date.format(&self.format).to_string())
             .build();
 
         button.set_child(Some(&label));
         button.show();
 
-        let rx = context.subscribe();
+        let mut rx = context.subscribe();
         glib::spawn_future_local(async move {
-            let mut rx = rx;
-            loop {
-                match rx.recv().await {
-                    Ok(date) => {
-                        let str = format!("{}", date.format(format));
-                        label.set_label(&str);
-                    }
-                    Err(err) => {
-                        error!("Error while loading date: {}", err);
-                        break;
-                    }
-                }
+            while let Ok(date) = rx.recv().await {
+                let formatted_date = date.format(&self.format).to_string();
+                label.set_label(&formatted_date);
             }
         });
 
         Ok(button)
     }
+
+    fn get_base_config(&self) -> &BaseModuleConfig {
+        &self.config
+    }
+}
+
+fn default_format() -> String {
+    "%a %d/%m/%Y - %H:%M:%S %p".to_string()
 }

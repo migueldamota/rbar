@@ -1,5 +1,13 @@
 {
-  "bar": {
-    "height": 40
-  }
+  "height": 42,
+  "modules": [
+    {
+      "name": "clock",
+      "format": "%a %d/%m/%Y - %H:%M:%S %p",
+      "config": {
+        "enabled": true,
+        "position": "center"
+      }
+    }
+  ]
 }

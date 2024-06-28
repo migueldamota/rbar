@@ -3,7 +3,7 @@ use std::sync::{
     Arc, OnceLock,
 };
 
-use gtk4::{prelude::*, Application};
+use gtk::{prelude::*, Application};
 use tokio::runtime::Runtime;
 
 use crate::{
@@ -25,7 +25,7 @@ impl RBar {
         }
     }
 
-    pub fn start(self) -> Result<(), ()> {
+    pub fn start(self) -> crate::Result<()> {
         let app = Application::builder().application_id(APP_ID).build();
 
         let instance = Arc::new(self);
@@ -60,3 +60,5 @@ fn create_runtime() -> Runtime {
         .build()
         .expect("Failed to create runtime")
 }
+
+fn load_config() {}

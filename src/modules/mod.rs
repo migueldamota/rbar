@@ -1,142 +1,126 @@
-use clock::Clock;
-use gtk4::{glib, prelude::*, Application, Widget};
-use tokio::sync::{broadcast, mpsc};
-
 use std::{fmt::Debug, sync::Arc};
 
-use crate::rbar::RBar;
+use gtk::{glib, prelude::*, Widget};
+use serde::Deserialize;
+use tokio::sync::{broadcast, mpsc};
 
-pub mod clock;
+use crate::{bar::Bar, RBar};
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+mod clock;
 
-pub enum ModuleUpdateEvent<S: Clone> {
-    Update(S),
-}
-
-pub struct WidgetContext<S, R>
-where
-    S: Clone,
-{
+/// [WidgetContext] holds information about widget and rbar.
+#[derive(Debug)]
+pub struct WidgetContext<S: Clone> {
     pub id: usize,
     pub rbar: Arc<RBar>,
 
-    pub tx: mpsc::Sender<ModuleUpdateEvent<S>>,
+    pub tx: mpsc::Sender<Events<S>>,
     pub update_tx: broadcast::Sender<S>,
-    pub controller_tx: mpsc::Sender<R>,
 }
 
-impl<S, R> WidgetContext<S, R>
-where
-    S: Clone,
-{
+impl<S: Clone> WidgetContext<S> {
+    /// Subscribe to the update channel of the module to receive updates and handle them.
     pub fn subscribe(&self) -> broadcast::Receiver<S> {
         self.update_tx.subscribe()
     }
 }
 
-pub trait Module<W>
-where
-    W: IsA<Widget>,
-{
-    type Send;
+pub trait Module<W: IsA<Widget>> {
+    /// Data to be received from the module.
     type Receive;
+    /// Data to be sent from the module.
+    type Send: Clone + Debug + Send + 'static;
 
+    /// Name of the module.
+    /// Can be used to identify the module and for styling purposes.
     fn name() -> &'static str;
 
-    fn spawn_controller(
-        &self,
-        context: &WidgetContext<Self::Send, Self::Receive>,
-        rx: mpsc::Receiver<Self::Receive>,
-    ) -> Result<()>
-    where
-        <Self as Module<W>>::Send: Clone;
+    /// Create controllers to handle certain events.
+    fn controllers(&self, context: &WidgetContext<Self::Send>) -> crate::Result<()>;
 
-    fn into_widget(self, context: WidgetContext<Self::Send, Self::Receive>) -> Result<W>
-    where
-        <Self as Module<W>>::Send: Clone;
+    /// Create the widget. Return the widget itself.
+    fn widget(self, context: WidgetContext<Self::Send>) -> crate::Result<W>;
+
+    /// Get module configuration.
+    fn get_base_config(&self) -> &BaseModuleConfig;
+
+    fn is_enabled(&self) -> bool {
+        self.get_base_config().enabled
+    }
+
+    fn get_position(&self) -> &ModulePosition {
+        &self.get_base_config().position
+    }
 }
 
-pub trait ModuleFactory {
-    fn create<M, W, S, R>(&self, module: M, container: &gtk4::Box) -> Result<()>
+/// [ModuleFactory] is creating instances of modules.
+pub struct ModuleFactory {
+    rbar: Arc<RBar>,
+}
+
+impl ModuleFactory {
+    /// Create a new [ModuleFactory].
+    pub fn new(rbar: Arc<RBar>) -> Self {
+        Self { rbar }
+    }
+
+    /// Create a widget and adds it to the container.
+    fn create<M, W>(&self, module: M, bar: &Bar) -> crate::Result<()>
     where
-        M: Module<W, Send = S, Receive = R>,
+        M: Module<W>,
         W: IsA<Widget>,
-        S: Debug + Clone + Send + 'static,
     {
         let id = RBar::unique_id();
 
-        let (ui_tx, ui_rx) = mpsc::channel::<ModuleUpdateEvent<S>>(2);
-        let (controller_tx, controller_rx) = mpsc::channel::<R>(2);
+        let (ui_tx, ui_rx) = mpsc::channel::<Events<M::Send>>(32);
 
-        let (tx, rx) = broadcast::channel(2);
+        let (tx, rx) = broadcast::channel(32);
 
         let context = WidgetContext {
             id,
-            rbar: self.rbar().clone(),
+            rbar: self.rbar.clone(),
 
             tx: ui_tx,
             update_tx: tx.clone(),
-            controller_tx,
         };
 
-        module.spawn_controller(&context, controller_rx)?;
+        // Create controllers.
+        module.controllers(&context)?;
 
-        let module_name = M::name();
+        // Get container.
+        let container = match module.get_position() {
+            ModulePosition::Left => &bar.left,
+            ModulePosition::Center => &bar.center,
+            ModulePosition::Right => &bar.right,
+        };
 
-        let m = module.into_widget(context)?;
-        m.set_widget_name(module_name);
-        m.add_css_class("widget");
+        // Create widget.
+        let widget = module.widget(context)?;
+        widget.set_widget_name(M::name());
+        widget.add_css_class("widget");
+        widget.add_css_class(M::name());
 
-        self.setup_receiver(tx, ui_rx, module_name, id);
+        // Append widget to container.
+        container.append(&widget);
 
-        container.append(&m);
+        // Setup receiver for module updates (and other events).
+        self.setup_receiver(tx, ui_rx);
 
         Ok(())
     }
 
-    fn setup_receiver<S>(
+    fn setup_receiver<S: Debug + Clone + Send + 'static>(
         &self,
         tx: broadcast::Sender<S>,
-        rx: mpsc::Receiver<ModuleUpdateEvent<S>>,
-        name: &'static str,
-        id: usize,
-    ) where
-        S: Debug + Clone + Send + 'static;
-
-    fn rbar(&self) -> &Arc<RBar>;
-}
-
-pub struct BarModuleFactory {
-    rbar: Arc<RBar>,
-}
-
-impl BarModuleFactory {
-    pub fn new(rbar: Arc<RBar>) -> Self {
-        Self { rbar }
-    }
-}
-
-impl ModuleFactory for BarModuleFactory {
-    fn rbar(&self) -> &Arc<RBar> {
-        &self.rbar
-    }
-
-    fn setup_receiver<S>(
-        &self,
-        tx: broadcast::Sender<S>,
-        rx: mpsc::Receiver<ModuleUpdateEvent<S>>,
-        name: &'static str,
-        id: usize,
-    ) where
-        S: Debug + Clone + Send + 'static,
-    {
+        mut rx: mpsc::Receiver<Events<S>>,
+    ) {
         glib::spawn_future_local(async move {
-            let mut rx = rx;
-            while let Some(ev) = rx.recv().await {
-                match ev {
-                    ModuleUpdateEvent::Update(data) => {
-                        tx.send(data).expect("why tho");
+            while let Some(event) = rx.recv().await {
+                use Events::*;
+                match event {
+                    Update(data) => {
+                        // todo: handle error
+                        tx.send(data).expect("Handle error!!!");
                     }
                 }
             }
@@ -144,14 +128,42 @@ impl ModuleFactory for BarModuleFactory {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(tag = "name", rename_all = "snake_case")]
 pub enum Modules {
-    Clock(Box<Clock>),
+    Clock(clock::Clock),
 }
 
 impl Modules {
-    pub fn create(self, module_factory: &BarModuleFactory, container: &gtk4::Box) -> Result<()> {
+    pub fn create(self, module_factory: &ModuleFactory, bar: &Bar) -> crate::Result<()> {
+        macro_rules! create {
+            ($module:expr) => {
+                module_factory.create($module, bar)
+            };
+        }
+
         match self {
-            Self::Clock(module) => module_factory.create(*module, container),
+            Self::Clock(module) => create!(module),
         }
     }
+}
+
+pub enum Events<S: Clone> {
+    /// Modules updates.
+    Update(S),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BaseModuleConfig {
+    pub enabled: bool,
+    pub position: ModulePosition,
+}
+
+/// [ModulePosition] is used to get the container wher the module should be added.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulePosition {
+    Left,
+    Center,
+    Right,
 }

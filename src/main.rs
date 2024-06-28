@@ -6,14 +6,15 @@ mod error;
 mod modules;
 mod rbar;
 
+type Result<T, E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
+
 fn main() {
     std::env::set_var("GSK_RENDERER", "cairo");
 
     let app = RBar::new();
 
-    // todo: handle errors
-    if app.start().is_err() {
-        // eprintln!("{}", err);
+    if let Err(e) = app.start() {
+        log::error!("There was an error while running app: {}", e);
         std::process::exit(1);
     }
 }

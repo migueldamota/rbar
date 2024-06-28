@@ -1,4 +1,4 @@
-use gtk4::{
+use gtk::{
     ffi::GTK_STYLE_PROVIDER_PRIORITY_USER,
     gdk::{Display, Monitor},
     gio,
@@ -10,7 +10,8 @@ use gtk4_layer_shell::LayerShell;
 use std::{env, sync::Arc};
 
 use crate::{
-    modules::{clock::Clock, BarModuleFactory, Modules},
+    config::Config,
+    modules::{ModuleFactory, Modules},
     rbar::RBar,
 };
 
@@ -21,37 +22,36 @@ pub struct Bar {
     name: &'static str,
 
     window: ApplicationWindow,
-    content: gtk4::CenterBox,
-    left: gtk4::Box,
-    center: gtk4::Box,
-    right: gtk4::Box,
 
-    rbar: Arc<RBar>,
+    pub left: gtk::Box,
+    pub center: gtk::Box,
+    pub right: gtk::Box,
+
+    pub rbar: Arc<RBar>,
 }
 
 impl Bar {
     pub fn new(app: &Application, rbar: Arc<RBar>) -> Self {
-        let window = ApplicationWindow::builder().application(app).build();
-        window.set_layer(gtk4_layer_shell::Layer::Top);
-
         let name = "rbar";
+
+        let window = ApplicationWindow::builder().application(app).build();
+        window.init_layer_shell();
+        window.set_layer(gtk4_layer_shell::Layer::Top);
 
         window.style_context().add_class("bar");
 
-        let content = gtk4::CenterBox::builder()
+        let content = gtk::CenterBox::builder()
             .orientation(Orientation::Horizontal)
             .hexpand(false)
             .height_request(rbar.config.bar.height)
             .name("bar")
             .build();
 
-        // todo: look at gtk4::CenterBox or gtk4::HeaderBar
-
         content.style_context().add_class("content");
 
-        let left = create_container("start");
+        let left = create_container("left");
         let center = create_container("center");
-        let right = create_container("end");
+        let right = create_container("right");
 
         content.set_start_widget(Some(&left));
         content.set_center_widget(Some(&center));
@@ -66,7 +66,6 @@ impl Bar {
         Self {
             name,
             window,
-            content,
             rbar,
 
             left,
@@ -113,16 +112,11 @@ impl Bar {
     }
 
     fn show(&self) {
-        self.left.show();
-        self.center.show();
-        self.right.show();
-        self.content.show();
-
         self.window.show();
     }
 
     fn load_modules(&self) -> Result<()> {
-        add_modules(&self.center, &self.rbar)?;
+        add_modules(&self);
 
         Ok(())
     }
@@ -135,15 +129,15 @@ pub fn load_css() {
     provider.load_from_file(&gio::File::for_path(&style_path));
 
     let screen = Display::default().expect("Failed to get defautl GTK screen");
-    gtk4::style_context_add_provider_for_display(
+    gtk::style_context_add_provider_for_display(
         &screen,
         &provider,
         GTK_STYLE_PROVIDER_PRIORITY_USER as u32,
     );
 }
 
-fn create_container(name: &str) -> gtk4::Box {
-    let container = gtk4::Box::builder()
+fn create_container(name: &str) -> gtk::Box {
+    let container = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .name(name)
         .build();
@@ -177,13 +171,11 @@ fn create_bar(app: &Application, rbar: Arc<RBar>, monitor: &Monitor) -> Result<B
     bar.init(monitor)
 }
 
-fn add_modules(content: &gtk4::Box, rbar: &Arc<RBar>) -> Result<()> {
-    let factory = BarModuleFactory::new(rbar.clone());
+fn add_modules(bar: &Bar) -> Result<()> {
+    let factory = ModuleFactory::new(bar.rbar.clone());
 
-    let modules: Vec<Modules> = vec![Modules::Clock(Box::new(Clock::new()))];
-
-    for module in modules {
-        module.create(&factory, content)?;
+    for module in bar.rbar.config.bar.modules {
+        module.create(&factory, bar)?;
     }
 
     Ok(())
