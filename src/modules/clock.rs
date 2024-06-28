@@ -53,7 +53,7 @@ impl Module<Button> for Clock {
 
         let button = Button::new();
         let label = Label::builder()
-            .label(&date.format(&self.format).to_string())
+            .label(date.format(&self.format).to_string())
             .build();
 
         button.set_child(Some(&label));

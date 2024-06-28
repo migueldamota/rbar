@@ -1,5 +1,8 @@
 {
   "height": 42,
+  "margin": {
+    "top": 8
+  },
   "modules": [
     {
       "name": "clock",

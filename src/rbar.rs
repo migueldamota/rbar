@@ -1,10 +1,15 @@
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, OnceLock,
+use std::{
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, OnceLock,
+    },
 };
 
 use gtk::{prelude::*, Application};
 use tokio::runtime::Runtime;
+
+use crate::style;
 
 use crate::{
     bar::{load_bars, load_css},
@@ -16,15 +21,16 @@ const APP_ID: &str = "com.migueldamota.rbar";
 #[derive(Debug)]
 pub struct RBar {
     pub config: Config,
+    pub config_dir: PathBuf,
 }
 
 impl RBar {
     pub fn new() -> Self {
-        Self {
-            config: Config::load(),
-        }
+        let (config, config_dir) = Config::load();
+        Self { config, config_dir }
     }
 
+    /// Start the rbar bar.
     pub fn start(self) -> crate::Result<()> {
         let app = Application::builder().application_id(APP_ID).build();
 
@@ -33,7 +39,9 @@ impl RBar {
         app.connect_activate(move |app| {
             // Load styles.
             load_css();
+            style::init(instance.clone());
 
+            // Load bars.
             load_bars(instance.clone(), app);
         });
 
@@ -63,5 +71,3 @@ fn create_runtime() -> Runtime {
         .build()
         .expect("Failed to create runtime")
 }
-
-fn load_config() {}

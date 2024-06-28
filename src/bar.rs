@@ -112,7 +112,7 @@ impl Bar {
     }
 
     fn load_modules(&self) -> Result<()> {
-        add_modules(&self)?;
+        add_modules(self)?;
 
         Ok(())
     }
@@ -138,7 +138,9 @@ fn create_container(name: &str) -> gtk::Box {
         .name(name)
         .build();
 
-    container.style_context().add_class("container");
+    let style_context = container.style_context();
+    style_context.add_class("container");
+    style_context.add_class(name);
 
     container
 }

@@ -6,6 +6,7 @@ use tokio::sync::{broadcast, mpsc};
 
 use crate::{bar::Bar, RBar};
 
+mod battery;
 mod clock;
 
 /// [WidgetContext] holds information about widget and rbar.
@@ -112,7 +113,7 @@ impl ModuleFactory {
         Ok(())
     }
 
-    fn setup_receiver<S: Debug + Clone + Send + 'static>(
+    fn setup_receiver<S: Clone + Debug + Send + 'static>(
         &self,
         tx: broadcast::Sender<S>,
         mut rx: mpsc::Receiver<Events<S>>,
@@ -134,6 +135,7 @@ impl ModuleFactory {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "name", rename_all = "snake_case")]
 pub enum Modules {
+    Battery(battery::Battery),
     Clock(clock::Clock),
 }
 
@@ -147,6 +149,7 @@ impl Modules {
 
         match self {
             Self::Clock(module) => create!(module),
+            Self::Battery(module) => create!(module),
         }
     }
 }
