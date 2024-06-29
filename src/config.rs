@@ -49,7 +49,7 @@ pub struct BarConfig {
     pub modules: Vec<Modules>,
 }
 
-/// Margin configuration
+/// Margin configuration.
 #[derive(Debug, Default, Deserialize)]
 pub struct MarginConfig {
     #[serde(default = "margin_default")]

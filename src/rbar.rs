@@ -6,15 +6,12 @@ use std::{
     },
 };
 
-use gtk::{prelude::*, Application};
+use gtk::{glib::ExitCode, prelude::*, Application};
 use tokio::runtime::Runtime;
 
 use crate::style;
 
-use crate::{
-    bar::{load_bars, load_css},
-    config::Config,
-};
+use crate::{bar::load_bars, config::Config};
 
 const APP_ID: &str = "com.migueldamota.rbar";
 
@@ -31,14 +28,13 @@ impl RBar {
     }
 
     /// Start the rbar bar.
-    pub fn start(self) -> crate::Result<()> {
+    pub fn start(self) -> crate::Result<ExitCode> {
         let app = Application::builder().application_id(APP_ID).build();
 
         let instance = Arc::new(self);
 
         app.connect_activate(move |app| {
             // Load styles.
-            load_css();
             style::init(instance.clone());
 
             // Load bars.
@@ -46,9 +42,7 @@ impl RBar {
         });
 
         // Let's run it.
-        app.run();
-
-        Ok(())
+        Ok(app.run())
     }
 
     /// Get unique id for widgets.

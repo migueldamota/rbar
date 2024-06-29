@@ -1,11 +1,10 @@
 use gtk::{
-    ffi::GTK_STYLE_PROVIDER_PRIORITY_USER,
     gdk::{Display, Monitor},
-    gio,
     prelude::*,
-    Application, ApplicationWindow, CssProvider, Orientation,
+    Application, ApplicationWindow, Orientation,
 };
-use gtk4_layer_shell::LayerShell;
+use gtk4_layer_shell::{Layer, LayerShell};
+use tracing::{debug, error};
 
 use std::{env, sync::Arc};
 
@@ -32,7 +31,7 @@ impl Bar {
 
         let window = ApplicationWindow::builder().application(app).build();
         window.init_layer_shell();
-        window.set_layer(gtk4_layer_shell::Layer::Top);
+        window.set_layer(Layer::Top);
 
         window.style_context().add_class("bar");
 
@@ -56,7 +55,7 @@ impl Bar {
         window.set_child(Some(&content));
 
         window.connect_destroy(|_| {
-            println!("destroy");
+            debug!("destroy");
         });
 
         Self {
@@ -71,7 +70,7 @@ impl Bar {
     }
 
     pub fn init(self, monitor: &Monitor) -> Result<Self> {
-        println!(
+        debug!(
             "Initializing bar '{}' on {:?}",
             self.name,
             monitor.manufacturer()
@@ -87,7 +86,7 @@ impl Bar {
     }
 
     fn setup_layer_shell(&self, win: &ApplicationWindow, monitor: &Monitor) {
-        use gtk4_layer_shell::{Edge, Layer};
+        use gtk4_layer_shell::Edge;
 
         win.init_layer_shell();
         win.set_monitor(monitor);
@@ -118,20 +117,6 @@ impl Bar {
     }
 }
 
-pub fn load_css() {
-    let style_path = env::current_dir().expect("to exist").join("style.css");
-
-    let provider = CssProvider::new();
-    provider.load_from_file(&gio::File::for_path(&style_path));
-
-    let screen = Display::default().expect("Failed to get defautl GTK screen");
-    gtk::style_context_add_provider_for_display(
-        &screen,
-        &provider,
-        GTK_STYLE_PROVIDER_PRIORITY_USER as u32,
-    );
-}
-
 fn create_container(name: &str) -> gtk::Box {
     let container = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
@@ -151,7 +136,7 @@ fn get_display() -> Display {
     Display::default().map_or_else(|| exit(3), |display| display)
 }
 
-pub fn load_bars(rbar: Arc<RBar>, app: &Application) {
+pub fn load_bars(rbar: Arc<RBar>, app: &Application) -> Result<()> {
     let display = get_display();
 
     let monitors = display.monitors();
@@ -159,9 +144,17 @@ pub fn load_bars(rbar: Arc<RBar>, app: &Application) {
     for i in 0..monitors.n_items() {
         let monitor = monitors.item(i).expect("monitor to exist");
         // todo: add error handling
-        let monitor = monitor.downcast::<Monitor>().unwrap();
-        let _ = create_bar(app, rbar.clone(), &monitor);
+        let monitor = match monitor.downcast::<Monitor>() {
+            Ok(monitor) => monitor,
+            Err(e) => {
+                error!("Failed to downcast monitor: {:#?}", e);
+                continue;
+            }
+        };
+        create_bar(app, rbar.clone(), &monitor)?;
     }
+
+    Ok(())
 }
 
 fn create_bar(app: &Application, rbar: Arc<RBar>, monitor: &Monitor) -> Result<Bar> {

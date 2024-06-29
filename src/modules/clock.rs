@@ -1,8 +1,8 @@
 use chrono::{DateTime, Local};
 use gtk::{glib, prelude::*, Button, Label};
-use log::error;
 use serde::Deserialize;
 use tokio::time::{sleep, Duration};
+use tracing::error;
 
 use crate::rbar::RBar;
 

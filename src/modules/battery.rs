@@ -1,9 +1,9 @@
 use std::ops::Mul;
 
-use gtk::{glib, prelude::*, Button, Label};
-use log::error;
+use gtk::{glib, prelude::*, Box, Button, Label};
 use serde::Deserialize;
 use tokio::time::{sleep, Duration};
+use tracing::error;
 
 use crate::rbar::RBar;
 
@@ -18,7 +18,7 @@ pub struct Battery {
     precision: u8,
 }
 
-impl Module<Button> for Battery {
+impl Module<Box> for Battery {
     type Receive = ();
     type Send = ();
 
@@ -42,11 +42,14 @@ impl Module<Button> for Battery {
         Ok(())
     }
 
-    fn widget(&self, context: super::WidgetContext<Self::Send>) -> crate::Result<Button> {
+    fn widget(&self, context: super::WidgetContext<Self::Send>) -> crate::Result<Box> {
+        let container = Box::new(gtk::Orientation::Horizontal, 0);
         let button = Button::new();
         let label = Label::builder().label("test").build();
 
         button.set_child(Some(&label));
+        container.append(&button);
+        container.show();
 
         let precision = self.precision;
 
@@ -93,13 +96,15 @@ impl Module<Button> for Battery {
 
             while rx.recv().await.is_ok() {
                 match manager.refresh(&mut battery) {
-                    Ok(_) => label.set_label(&format_label(&battery, precision)),
+                    Ok(_) => {
+                        label.set_label(&format_label(&battery, precision));
+                    }
                     Err(e) => error!("Failed to refresh battery: {}", e),
                 }
             }
         });
 
-        Ok(button)
+        Ok(container)
     }
 
     fn get_base_config(&self) -> &BaseModuleConfig {
