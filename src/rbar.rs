@@ -8,6 +8,7 @@ use std::{
 
 use gtk::{glib::ExitCode, prelude::*, Application};
 use tokio::runtime::Runtime;
+use tracing::error;
 
 use crate::style;
 
@@ -38,7 +39,9 @@ impl RBar {
             style::init(instance.clone());
 
             // Load bars.
-            load_bars(instance.clone(), app);
+            if let Err(e) = load_bars(instance.clone(), app) {
+                error!("Failed to load bars: {}", e);
+            }
         });
 
         // Let's run it.

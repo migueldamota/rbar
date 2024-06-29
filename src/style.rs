@@ -7,14 +7,10 @@ use crate::{config::Config, rbar::RBar};
 
 pub fn init(rbar: Arc<RBar>) {
     let path = Config::get_style_path();
-    if path.exists() {
-        load_css(path);
-    } else {
-        warn!(
-            "Style file does not exist: {} - Using default styling.",
-            path.display()
-        );
+    if !path.exists() {
+        warn!("Style file does not exist: {}", path.display());
     }
+    load_css(path);
 }
 
 fn load_css(path: PathBuf) {

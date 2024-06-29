@@ -78,7 +78,7 @@ impl Bar {
 
         self.setup_layer_shell(&self.window, monitor);
 
-        let _res = self.load_modules();
+        self.load_modules()?;
 
         self.show();
 
@@ -92,10 +92,10 @@ impl Bar {
         win.set_monitor(monitor);
         win.set_layer(Layer::Top);
         win.set_namespace(env!("CARGO_PKG_NAME"));
-
         win.auto_exclusive_zone_enable();
 
         let margin = &self.rbar.config.margin;
+
         win.set_margin(Edge::Top, margin.top);
         win.set_margin(Edge::Left, margin.left);
         win.set_margin(Edge::Right, margin.right);
