@@ -1,8 +1,11 @@
 use std::ops::Mul;
 
-use gtk::{glib, prelude::*, Box, Button, Label};
+use gtk::{glib, prelude::*, Box, Label};
 use serde::Deserialize;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    sync::broadcast,
+    time::{sleep, Duration},
+};
 use tracing::error;
 
 use crate::rbar::RBar;
@@ -44,63 +47,22 @@ impl Module<Box> for Battery {
 
     fn widget(&self, context: super::WidgetContext<Self::Send>) -> crate::Result<Box> {
         let container = Box::new(gtk::Orientation::Horizontal, 0);
-        let button = Button::new();
-        let label = Label::builder().label("test").build();
+        let icon = Label::new(Some(""));
+        let label = Label::new(Some(""));
 
-        button.set_child(Some(&label));
-        container.append(&button);
+        icon.add_css_class("icon");
+        label.add_css_class("label");
+
+        container.append(&icon);
+        container.append(&label);
         container.show();
 
         let precision = self.precision;
 
-        let mut rx = context.subscribe();
+        let rx = context.subscribe();
         glib::spawn_future_local(async move {
-            let manager = match battery::Manager::new() {
-                Ok(manager) => manager,
-                Err(e) => {
-                    error!("Failed to create battery manager: {}", e);
-                    return;
-                }
-            };
-
-            let mut battery = match manager
-                .batteries()
-                .and_then(|mut batteries| batteries.next().unwrap())
-            {
-                Ok(battery) => battery,
-                Err(e) => {
-                    error!("Failed to get battery: {}", e);
-                    return;
-                }
-            };
-
-            fn format_label(battery: &battery::Battery, precision: u8) -> String {
-                use battery::State;
-
-                let state = match battery.state() {
-                    State::Charging => "Charging",
-                    State::Discharging => "Discharging",
-                    State::Empty => "Empty",
-                    State::Full => "Full",
-                    State::Unknown => "Unknown",
-                    _ => "Unknown",
-                };
-
-                format!(
-                    "{} | {:.p$}%",
-                    state,
-                    battery.state_of_charge().value.mul(100.0),
-                    p = precision as usize,
-                )
-            }
-
-            while rx.recv().await.is_ok() {
-                match manager.refresh(&mut battery) {
-                    Ok(_) => {
-                        label.set_label(&format_label(&battery, precision));
-                    }
-                    Err(e) => error!("Failed to refresh battery: {}", e),
-                }
+            if let Err(e) = run_widget(rx, &icon, &label, precision).await {
+                error!("Failed to run widget: {}", e);
             }
         });
 
@@ -114,4 +76,82 @@ impl Module<Box> for Battery {
 
 fn precision_default() -> u8 {
     0
+}
+
+async fn run_widget(
+    mut rx: broadcast::Receiver<()>,
+    icon: &Label,
+    label: &Label,
+    precision: u8,
+) -> crate::Result<()> {
+    let manager = battery::Manager::new().inspect_err(|_| {
+        error!("Failed to create battery mannager");
+    })?;
+
+    let mut battery = manager
+        .batteries()?
+        .next()
+        .ok_or("No batteries found")?
+        .map_err(|e| {
+            error!("Failed to get battery: {}", e);
+            e
+        })?;
+
+    let container = label.parent().unwrap();
+    let classes = ["charging", "discharging", "empty", "full", "unknown"];
+
+    while rx.recv().await.is_ok() {
+        if let Err(e) = manager.refresh(&mut battery) {
+            error!("Failed to refresh battery: {}", e);
+        } else {
+            use battery::State;
+
+            let class_index = match battery.state() {
+                State::Charging => 0,
+                State::Discharging => 1,
+                State::Empty => 2,
+                State::Full => 3,
+                _ => 4,
+            };
+
+            for (i, class) in classes.iter().enumerate() {
+                container.remove_css_class(class);
+                if i == class_index {
+                    container.add_css_class(class);
+                }
+            }
+
+            format_label(icon, label, &battery, precision);
+        }
+    }
+
+    Ok(())
+}
+
+fn format_label(icon: &Label, label: &Label, battery: &battery::Battery, precision: u8) {
+    use battery::State;
+    let soc = battery.state_of_charge().value.mul(100.0);
+
+    let icon_text = if battery.state() == State::Charging {
+        ""
+    } else {
+        match soc {
+            0.0..=10.0 => "",
+            11.0..=40.0 => "",
+            41.0..=60.0 => "",
+            61.0..=80.0 => "",
+            81.0..=100.0 => "",
+            _ => "",
+        }
+    };
+
+    icon.set_label(icon_text);
+
+    let label_text = format!(
+        "{:.1$}%",
+        battery.state_of_charge().value.mul(100.0),
+        precision as usize,
+    );
+
+    label.set_label(&label_text);
 }

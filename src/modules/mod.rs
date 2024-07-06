@@ -78,7 +78,7 @@ impl ModuleFactory {
 
         let (ui_tx, ui_rx) = mpsc::channel::<Events<M::Send>>(32);
 
-        let (tx, rx) = broadcast::channel(32);
+        let (tx, _) = broadcast::channel(32);
 
         let context = WidgetContext {
             id,

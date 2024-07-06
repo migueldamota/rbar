@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::Local;
 use gtk::{glib, prelude::*, Button, Label};
 use serde::Deserialize;
 use tokio::time::{sleep, Duration};
@@ -23,7 +23,7 @@ pub struct Clock {
 
 impl Module<Button> for Clock {
     type Receive = ();
-    type Send = DateTime<Local>;
+    type Send = ();
 
     fn name() -> &'static str {
         "clock"
@@ -31,12 +31,11 @@ impl Module<Button> for Clock {
 
     fn controllers(&self, context: &WidgetContext<Self::Send>) -> crate::Result<()> {
         let tx = context.tx.clone();
+        let duration = Duration::from_millis(500);
 
         RBar::runtime().spawn(async move {
-            let duration = Duration::from_millis(500);
             loop {
-                let date = Local::now();
-                if let Err(e) = tx.send(Events::Update(date)).await {
+                if let Err(e) = tx.send(Events::Update(())).await {
                     error!("Error while sending date: {}", e);
                     break;
                 }
@@ -63,7 +62,8 @@ impl Module<Button> for Clock {
 
         let mut rx = context.subscribe();
         glib::spawn_future_local(async move {
-            while let Ok(date) = rx.recv().await {
+            while rx.recv().await.is_ok() {
+                let date = Local::now();
                 let formatted_date = date.format(&format).to_string();
                 label.set_label(&formatted_date);
             }

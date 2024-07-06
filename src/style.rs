@@ -1,11 +1,11 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use gtk::{ffi::GTK_STYLE_PROVIDER_PRIORITY_USER, gdk::Display, gio::File, CssProvider};
 use tracing::{debug, warn};
 
-use crate::{config::Config, rbar::RBar};
+use crate::config::Config;
 
-pub fn init(rbar: Arc<RBar>) {
+pub fn init() {
     let path = Config::get_style_path();
     if !path.exists() {
         warn!("Style file does not exist: {}", path.display());

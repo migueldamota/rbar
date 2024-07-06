@@ -26,7 +26,13 @@ pub struct Bar {
 }
 
 impl Bar {
-    pub fn new(app: &Application, rbar: Arc<RBar>) -> Self {
+    /// Create a new bar.
+    pub fn create(app: &Application, rbar: Arc<RBar>, monitor: &Monitor) -> Result<Self> {
+        let bar = Bar::new(app, rbar);
+        bar.init(monitor)
+    }
+
+    fn new(app: &Application, rbar: Arc<RBar>) -> Self {
         let name = "rbar";
 
         let window = ApplicationWindow::builder().application(app).build();
@@ -90,7 +96,7 @@ impl Bar {
 
         win.init_layer_shell();
         win.set_monitor(monitor);
-        win.set_layer(Layer::Top);
+        win.set_layer(Layer::Background);
         win.set_namespace(env!("CARGO_PKG_NAME"));
         win.auto_exclusive_zone_enable();
 
@@ -111,7 +117,11 @@ impl Bar {
     }
 
     fn load_modules(&self) -> Result<()> {
-        add_modules(self)?;
+        let factory = ModuleFactory::new(self.rbar.clone());
+
+        for module in self.rbar.config.bar.modules.iter() {
+            module.create(&factory, self)?;
+        }
 
         Ok(())
     }
@@ -151,22 +161,7 @@ pub fn load_bars(rbar: Arc<RBar>, app: &Application) -> Result<()> {
                 continue;
             }
         };
-        create_bar(app, rbar.clone(), &monitor)?;
-    }
-
-    Ok(())
-}
-
-fn create_bar(app: &Application, rbar: Arc<RBar>, monitor: &Monitor) -> Result<Bar> {
-    let bar = Bar::new(app, rbar);
-    bar.init(monitor)
-}
-
-fn add_modules(bar: &Bar) -> Result<()> {
-    let factory = ModuleFactory::new(bar.rbar.clone());
-
-    for module in bar.rbar.config.bar.modules.iter() {
-        module.create(&factory, bar)?;
+        Bar::create(app, rbar.clone(), &monitor)?;
     }
 
     Ok(())

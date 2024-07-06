@@ -1,0 +1,11 @@
+{
+  "modules": {
+    "right": [
+      "clock",
+      {
+        "name": "battery",
+        "precision": 1
+      }
+    ]
+  }
+}

@@ -36,7 +36,7 @@ impl RBar {
 
         app.connect_activate(move |app| {
             // Load styles.
-            style::init(instance.clone());
+            style::init();
 
             // Load bars.
             if let Err(e) = load_bars(instance.clone(), app) {
