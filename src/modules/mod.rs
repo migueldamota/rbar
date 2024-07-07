@@ -6,8 +6,8 @@ use tokio::sync::{broadcast, mpsc};
 
 use crate::{bar::Bar, RBar};
 
-mod battery;
 mod clock;
+mod power;
 
 /// [WidgetContext] holds information about widget and rbar.
 #[derive(Debug)]
@@ -39,7 +39,9 @@ pub trait Module<W: IsA<Widget>> {
     fn name() -> &'static str;
 
     /// Create controllers to handle certain events.
-    fn controllers(&self, context: &WidgetContext<Self::Send>) -> crate::Result<()>;
+    fn controllers(&self, context: &WidgetContext<Self::Send>) -> crate::Result<()> {
+        Ok(())
+    }
 
     /// Create the widget. Return the widget itself.
     fn widget(&self, context: WidgetContext<Self::Send>) -> crate::Result<W>;
@@ -135,8 +137,8 @@ impl ModuleFactory {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "name", rename_all = "snake_case")]
 pub enum Modules {
-    Battery(battery::Battery),
     Clock(clock::Clock),
+    Power(power::Power),
 }
 
 impl Modules {
@@ -149,7 +151,7 @@ impl Modules {
 
         match self {
             Self::Clock(module) => create!(module),
-            Self::Battery(module) => create!(module),
+            Self::Power(module) => create!(module),
         }
     }
 }

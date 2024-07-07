@@ -120,7 +120,9 @@ impl Bar {
         let factory = ModuleFactory::new(self.rbar.clone());
 
         for module in self.rbar.config.bar.modules.iter() {
-            module.create(&factory, self)?;
+            if let Err(e) = module.create(&factory, self) {
+                error!("Failed to load module: {}", e);
+            }
         }
 
         Ok(())

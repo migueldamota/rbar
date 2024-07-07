@@ -4,7 +4,8 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-battery = "0.7"
+battery.workspace = true
+
 chrono = "0.4"
 dirs = "5.0.1"
 gtk = { package = "gtk4", version = "0.8" }
@@ -15,3 +16,10 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 usvg = "0.42.0"
+
+[workspace]
+members = ["crates/battery"]
+resolver = "2"
+
+[workspace.dependencies]
+battery = { path = "crates/battery" }
